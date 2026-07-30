@@ -1,0 +1,13 @@
+# generated ERD output — regenerate, don't commit
+liam-erd/
+docs/schema/
+dbdoc/
+tbls.json
+.tbls.yml
+.erd-viewpoints.json
+schema.sql
+
+# local scratch
+node_modules/
+.omc/
+.DS_Store
