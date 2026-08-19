@@ -7,7 +7,27 @@ description: Generate an ERD from a live database or DDL file — pick between a
 
 Two deliverables, chosen by measuring the schema — never by guessing from table count alone.
 
-## 1. Measure before choosing
+## 1. Split by schema first, if there is more than one (MySQL)
+
+In MySQL, "schema" and "database" are the same thing — one server commonly hosts several independent ones (`shop`, `billing`, `analytics`) with no FKs crossing between them. Merging their tables into one FK graph produces a diagram of several disconnected clusters glued together, which is worse than separate diagrams. And a DSN with no database segment, or the wrong one, silently draws only whatever `tbls` defaults to — never every schema on the server.
+
+List what actually exists before assuming there is only one:
+
+```bash
+mysql -h HOST -P PORT -u USER -pPASS -N -e \
+  "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA
+   WHERE SCHEMA_NAME NOT IN ('information_schema','mysql','performance_schema','sys')"
+```
+
+If more than one comes back, run steps 2–4 **once per schema**, each with its own DSN (`mysql://user:pass@host:port/<schema>`), `.tbls.yml` (`gen-viewpoints.mjs ... --out .tbls-<schema>.yml --doc-path docs/schema/<schema>`), and Liam output dir (`./build-erd.sh liam-erd/<schema>`, with `ERD_CONFIG=.tbls-<schema>.yml`). Never mix tables from different schemas into one viewpoint. Once every schema has its own `liam-erd/<schema>/index.html`, link them from one top-level index:
+
+```bash
+./scripts/build-schema-index.sh liam-erd shop billing analytics
+```
+
+This step is MySQL/MariaDB-specific — PostgreSQL and SQL Server use "schema" for a namespace inside one database and normally need only one pass; ask if it's unclear which the user means.
+
+## 2. Measure before choosing
 
 Connect and count. `tbls` abstracts the driver, so this is the same for every supported DB:
 
@@ -21,7 +41,7 @@ The generator prints table count, FK count, detected hubs, and orphans. **Read t
 
 DSN schemes: `mysql://`(`my://`), `postgres://`(`pg://`), `mariadb://`, `sqlite:///path.db`, `mssql://`/`sqlserver://`, `redshift://`, `bigquery://`, `spanner://`. From a DDL file with no live DB, load it into a throwaway container first — `tbls` introspects databases, not SQL text.
 
-## 2. Choose by hub degree, not table count
+## 3. Choose by hub degree, not table count
 
 What breaks a single diagram is **one table having many children**, because Mermaid `erDiagram` has no way to position nodes — no subgraphs, no coordinates. Edge crossings explode and the SVG stretches past readability.
 
@@ -29,7 +49,7 @@ What breaks a single diagram is **one table having many children**, because Merm
 |---|---|
 | ≤30 tables **and** max hub in-degree ≤10 | Single Mermaid ERD, inline in markdown |
 | 30–60 tables | Domain-split Mermaid, one diagram per domain + a domain-level context map |
-| >60 tables, or any hub with >20 children | Interactive split views (step 3) — a single diagram is unreadable |
+| >60 tables, or any hub with >20 children | Interactive split views (step 4) — a single diagram is unreadable |
 
 Prefer Mermaid when it fits: it is text, so it version-controls and renders in GitHub/GitLab/Notion/IDEs with no tooling. Only escalate when the measurement says it will not fit.
 
@@ -41,7 +61,7 @@ node -e "const m=require('mermaid');m.default.parse(require('fs').readFileSync('
 
 `erDiagram` parses headless. `flowchart` needs a DOM — wire up `jsdom` or accept that a `DOMPurify.addHook is not a function` error is an environment limitation, not a syntax error.
 
-## 3. Domain-split interactive views
+## 4. Domain-split interactive views
 
 ```bash
 ./scripts/build-erd.sh              # -> liam-erd/, one view per domain + "all"
@@ -65,7 +85,7 @@ From the FK graph, not table names — prefixes lie, foreign keys do not.
 
 Coverage is asserted: if any table lands in no view, the generator exits non-zero. Hand-edit `.tbls.yml` afterward to rename or further split a domain — a domain over ~30 tables is still hard to read.
 
-## 4. Verify, do not assume
+## 5. Verify, do not assume
 
 - `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8899/<slug>/` for every view
 - Cross-check the diagram's relationship count against the database:
@@ -75,7 +95,7 @@ Coverage is asserted: if any table lands in no view, the generator exits non-zer
   ```
 - Re-read the table count if the schema might be changing under you. A mid-migration snapshot silently produces a wrong ERD.
 
-## 5. Report schema findings
+## 6. Report schema findings
 
 The FK graph exposes real defects — surface them rather than only drawing:
 
@@ -90,6 +110,7 @@ These cost real debugging time; see `references/tool-notes.md` for detail.
 
 | Quirk | Consequence |
 |---|---|
+| MySQL has no server-wide introspect mode | One DSN = one schema; a multi-schema server needs one `tbls out` per schema |
 | Liam's `--format` has no `mysql` | MySQL DDL cannot be fed directly; `tbls` is the required bridge |
 | `tbls` does not auto-discover its config | Omitting `-c .tbls.yml` silently ignores viewpoints and writes `dbdoc/` |
 | Liam output rejects `file://` | Must be served over HTTP |

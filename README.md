@@ -52,6 +52,8 @@ Depending on what the measurement says:
 
 Plus a review of what the FK graph reveals: orphaned tables, junction tables missing a composite UNIQUE, FKs left at default `RESTRICT`, status enums with no timestamps.
 
+For MySQL, a server with several independent schemas (databases) gets one ERD per schema instead of one merged graph — see `references/tool-notes.md`.
+
 ## Manual use
 
 The scripts work without an agent:

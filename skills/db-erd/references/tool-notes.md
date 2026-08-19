@@ -64,6 +64,16 @@ while IFS= read -r line; do
 done < <(node -e "...")
 ```
 
+## MySQL has no server-wide introspect mode
+
+A MySQL "schema" is a database, and `tbls`' DSN points at exactly one:
+
+```
+mysql://user:pass@host:port/dbname
+```
+
+There is no DSN that means "every schema on this server" — omitting `dbname` does not enumerate them, it just fails or falls through to whatever the driver defaults to. A server with `shop`, `billing`, and `analytics` as separate databases needs three separate `tbls out` calls with three DSNs; nothing merges them for you, and nothing warns that other schemas exist. Check `information_schema.SCHEMATA` first if the request doesn't name a specific schema.
+
 ## Read the schema twice if it may be changing
 
 A snapshot taken during a migration produces a confidently wrong ERD. Symptom: two counting methods disagree — e.g. `information_schema` reports 20 tables while `tbls` reports 138, because tables were being created between the two reads. Re-count until stable, and check `create_time`:
