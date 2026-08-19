@@ -1,5 +1,7 @@
 # db-erd
 
+**English** | [한국어](README.ko.md)
+
 An [Agent Skill](https://agentskills.io/home) that generates ERDs from a live database — for **Claude Code** and **Codex**.
 
 It does not just draw a diagram. It measures the schema's foreign-key graph first, then picks the deliverable that will actually be readable: a single Mermaid diagram for small schemas, or domain-split interactive views for large ones.
@@ -13,8 +15,8 @@ It also packages workflow knowledge that is not documented anywhere obvious, suc
 ## Install
 
 ```bash
-git clone https://github.com/<you>/db-erd-skill.git
-cd db-erd-skill
+git clone https://github.com/kimmin-ko/erd-skills.git
+cd erd-skills
 ./install.sh            # both agents; --claude or --codex for one
 ```
 
